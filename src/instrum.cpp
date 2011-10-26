@@ -5,7 +5,7 @@
 namespace Instrum
 {
 
-static const char* resStrings[] = {"ns", "us", "ms", "s"};
+static const char* resStrings[] = {"ns", "us", "ms", "sec"};
 
 static TraceData  m_traceData;
 static ProbeData* m_currProbePtr = 0;
@@ -178,6 +178,12 @@ std::string Tracer::toString()
 
 
     return outStr.str();
+}
+
+
+void Tracer::setResolution(Resolution res)
+{
+    m_traceData.res = res;
 }
 
 
