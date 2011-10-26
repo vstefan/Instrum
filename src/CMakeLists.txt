@@ -1,0 +1,2 @@
+SET(BUILD_SHARED_LIBS ON)
+ADD_LIBRARY( Instrum instrum )
