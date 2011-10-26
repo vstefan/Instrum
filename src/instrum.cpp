@@ -161,7 +161,7 @@ std::string Tracer::toString()
 
     if(!isValidTime(m_traceData.start) || !isValidTime(m_traceData.end))
     {
-        outStr << " has invalid start/end time";
+        outStr << " has invalid start/end time" << std::endl;
     }
     else
     {
@@ -223,13 +223,15 @@ unsigned long Tracer::elapsedTime(const timespec& start, const timespec& end)
 timespec Tracer::timeDiff(const timespec& start, const timespec& end)
 {
     timespec temp;
-    if((end.tv_nsec-start.tv_nsec)<0) {
-        temp.tv_sec = end.tv_sec-start.tv_sec-1;
-        temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+    if((end.tv_nsec - start.tv_nsec) < 0)
+    {
+        temp.tv_sec  = end.tv_sec - start.tv_sec - 1;
+        temp.tv_nsec = 1000000000 + end.tv_nsec - start.tv_nsec;
     }
-    else {
-        temp.tv_sec = end.tv_sec-start.tv_sec;
-        temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+    else
+    {
+        temp.tv_sec  = end.tv_sec  - start.tv_sec;
+        temp.tv_nsec = end.tv_nsec - start.tv_nsec;
     }
 
 	return temp;
