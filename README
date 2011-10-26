@@ -1,0 +1,2 @@
+Instrum is a lightweight C++ instrumentation library designed to be built into your application and
+turned on dynamically at run-time to gather performance related statistics.
