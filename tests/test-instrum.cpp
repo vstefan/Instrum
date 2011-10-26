@@ -10,18 +10,14 @@ using namespace Instrum;
 
 int main()
 {
+    Tracer::startTrace("test-trace");
 
-	Tracer::startTrace("test-trace");
+    // sleep half a second
+    usleep(500000);
 
-	// sleep half a second
-	usleep(500000);
+    Tracer::finishTrace(false);
 
-	Tracer::finishTrace(false);
+    cout << Tracer::toString() << endl;
 
-	cout << Tracer::toString() << endl;
-
-	return 0;
+    return 0;
 }
-
-
-
