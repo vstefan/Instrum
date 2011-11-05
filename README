@@ -8,4 +8,12 @@ make
 make install (if you want to install it).
 
 To use, include instrum.h and use the macros within. Look at testMacros() from test-instrum.cpp
-for an example.
+for an example. Here is an example of the trace output using millisecond resolution:
+
+TRACE: Dummy-Call-Auto-Trace processed for 2541 ms
+#1 -> METHOD: JobProcessor::start() took 1534 ms - 60.37% of total time
+#2 --> METHOD: RecordProcessor::processRecords() took 1279 ms - 50.33% of total time
+#3 ---> STORED_PROC: records_pkg.fetch_records() took 507 ms - 19.95% of total time
+#4 ---> METHOD: RecordProcessor::processRecord() took 253 ms - 9.96% of total time
+#5 ---> METHOD: RecordProcessor::processRecord() took 256 ms - 10.07% of total time
+#6 -> METHOD: JobProcessor::finish() took 1006 ms - 39.59% of total time
