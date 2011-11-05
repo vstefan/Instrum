@@ -2,27 +2,12 @@
 #define INSTRUM_H_
 
 #include <string>
+#include <sstream>
 #include <list>
 #include <time.h>
 
 namespace Instrum
 {
-
-struct ProbeData
-{
-    ProbeData(const std::string& n);
-
-    ProbeData();
-
-    void reset();
-
-    std::string          name;
-    timespec             start;
-    timespec             end;
-    bool                 error;
-    ProbeData*           parentPtr;
-    std::list<ProbeData> children;
-};
 
 enum Resolution{
     NANO_SECONDS  = 0,
@@ -31,6 +16,35 @@ enum Resolution{
     SECONDS       = 3
 };
 
+
+struct ProbeData
+{
+    ProbeData(const std::string& n);
+
+    ProbeData(const std::string& n,
+              bool               sen);
+
+    ProbeData();
+
+    void reset();
+
+    void toStream(const unsigned long& traceElapsedTime,
+                  unsigned int         depth,
+                  unsigned int&        probeNum,
+                  const unsigned int&  probeCount,
+                  const Resolution&    res,
+                  std::ostringstream&  outStr) const;
+
+    std::string          name;
+    timespec             start;
+    timespec             end;
+    bool                 error;
+    bool                 sentinel;
+    ProbeData*           parentPtr;
+    std::list<ProbeData> children;
+};
+
+
 struct TraceData
 {
     TraceData();
@@ -38,13 +52,8 @@ struct TraceData
     void reset();
 
     Resolution   res;
-    std::string  name;
-    timespec     start;
-    timespec     end;
     bool         active;
-    bool         error;
     unsigned int probeCount;
-
     ProbeData    head;
 };
 
@@ -68,14 +77,6 @@ public:
 
 private:
     inline static void getCurrentTime(timespec *tpPtr);
-
-    inline static bool isValidTime(const timespec& tp);
-
-    static unsigned long elapsedTime(const timespec& start, const timespec& end);
-
-    static timespec timeDiff(const timespec& start, const timespec& end);
-
-    inline static unsigned int numDigits(unsigned int val);
 
     inline static void reset();
 };
