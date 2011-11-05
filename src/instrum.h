@@ -1,87 +1,52 @@
 #ifndef INSTRUM_H_
 #define INSTRUM_H_
 
-#include <string>
-#include <sstream>
-#include <list>
-#include <time.h>
+#include "tracer.h"
 
-namespace Instrum
-{
-
-enum Resolution{
-    NANO_SECONDS  = 0,
-    MICRO_SECONDS = 1,
-    MILLI_SECONDS = 2,
-    SECONDS       = 3
-};
+// use this to enable/disable tracing. as this is designed
+// to be built into your application and so deployed to production,
+// tracing is disabled by default
+#define INSTRUM_TRACE_ENABLE(enable)               \
+Instrum::Tracer::enableTracing(enable);            \
 
 
-struct ProbeData
-{
-    ProbeData(const std::string& n);
-
-    ProbeData(const std::string& n,
-              bool               sen);
-
-    ProbeData();
-
-    void reset();
-
-    void toStream(const unsigned long& traceElapsedTime,
-                  unsigned int         depth,
-                  unsigned int&        probeNum,
-                  const unsigned int&  probeCount,
-                  const Resolution&    res,
-                  std::ostringstream&  outStr) const;
-
-    std::string          name;
-    timespec             start;
-    timespec             end;
-    bool                 error;
-    bool                 sentinel;
-    ProbeData*           parentPtr;
-    std::list<ProbeData> children;
-};
+// use this at the start of a method (or any scope) to start a trace
+// for that scope. uses constructor & destructor so relies on
+// the stack unwinding (not jump/goto safe).
+#define INSTRUM_AUTO_TRACE(name)                   \
+Instrum::InstrumAutoTrace instrumAutoTrace(name);  \
 
 
-struct TraceData
-{
-    TraceData();
+// use this while a trace is active to instrument an event which is
+// part of the trace. uses constructor & destructor so relies on
+// the stack unwinding (not jump/goto safe)
+#define INSTRUM_AUTO_PROBE(name)                   \
+Instrum::InstrumAutoProbe instrumAutoProbe(name);  \
 
-    void reset();
 
-    Resolution   res;
-    bool         active;
-    unsigned int probeCount;
-    ProbeData    head;
-};
+// explicitly marks the end of a trace
+#define INSTRUM_TRACE_FINISH()                     \
+Instrum::Tracer::finishTrace();                    \
 
-class Tracer
-{
 
-public:
-    static void startTrace(const std::string& name);
+// explicitly marks the end of a probe
+#define INSTRUM_PROBE_FINISH()                     \
+Instrum::Tracer::finishProbe();                    \
 
-    static void finishTrace(bool error);
 
-    static void startProbe(const std::string& name);
+// changes resolution of trace timing
+// valid values:
+// Instrum::NANO_SECONDS
+// Instrum::MICRO_SECONDS
+// Instrum::MILLI_SECONDS
+// Instrum::SECONDS
+#define INSTRUM_TRACE_RESOLUTION(res)              \
+Instrum::Tracer::setResolution(res);               \
 
-    static void finishProbe(bool error);
 
-    static std::string toString();
-
-    // change elapsed time resolution
-    // defaults to milliseconds.
-    static void setResolution(Resolution res);
-
-private:
-    inline static void getCurrentTime(timespec *tpPtr);
-
-    inline static void reset();
-};
-
-};
-
+// gets trace output
+// eg: std::cout << INSTRUM_TRACE_OUTPUT()
+#define INSTRUM_TRACE_OUTPUT()                     \
+Instrum::Tracer::toString();                       \
 
 #endif /* INSTRUM_H_ */

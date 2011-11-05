@@ -1,14 +1,67 @@
-#include "instrum.h"
+#include "tracer.h"
+#include <sstream>
+#include <list>
 #include <iomanip>
 #include <iostream>
 
 namespace Instrum
 {
 
+// represents a probe (1 trace can have many probes).
+// each probe can have children (one method calling another..)
+struct ProbeData
+{
+    ProbeData(const std::string& n);
+
+    ProbeData(const std::string& n,
+              bool               sen);
+
+    ProbeData();
+
+    void reset();
+
+    void toStream(const unsigned long& traceElapsedTime,
+                  unsigned int         depth,
+                  unsigned int&        probeNum,
+                  const unsigned int&  probeCount,
+                  std::ostringstream&  outStr) const;
+
+    std::string          name;
+    timespec             start;
+    timespec             end;
+    bool                 sentinel;
+    ProbeData*           parentPtr;
+    std::list<ProbeData> children;
+};
+
+// holds the trace data and importantly, the head of the probe tree
+class TraceData
+{
+public:
+    TraceData();
+
+    void reset();
+
+    Resolution   res;
+    bool         active;
+    bool         enabled;
+    unsigned int probeCount;
+    ProbeData    head;
+
+private:
+    TraceData(const TraceData& copy);
+    const TraceData& operator=(const TraceData& rhs);
+};
+
+
+// Resolution is a direct index into this array
 static const char* resStrings[] = {"ns", "us", "ms", "sec"};
+
 
 static TraceData  m_traceData;
 static ProbeData* m_currProbePtr = 0;
+bool Tracer::enabled             = false;
+
 
 bool isValidTime(const timespec& tp)
 {
@@ -54,7 +107,7 @@ unsigned long elapsedTime(const timespec& start, const timespec& end)
     }
     else if(SECONDS == m_traceData.res)
     {
-    elapsed = diff.tv_sec + (diff.tv_nsec / 1000000000);
+        elapsed = diff.tv_sec + (diff.tv_nsec / 1000000000);
     }
 
     return elapsed;
@@ -76,9 +129,8 @@ unsigned int numDigits(unsigned int val)
 
 
 ProbeData::ProbeData(const std::string& n)
-    : name(n)
-     ,error(false)
-     ,sentinel(false)
+    : name     (n)
+     ,sentinel (false)
      ,parentPtr(0)
 {
     start.tv_sec  = 0;
@@ -86,12 +138,12 @@ ProbeData::ProbeData(const std::string& n)
     end.tv_sec    = 0;
     end.tv_nsec   = 0;
 }
+
 
 ProbeData::ProbeData(const std::string& n,
                      bool               sen)
-    : name(n)
-     ,error(false)
-     ,sentinel(sen)
+    : name     (n)
+     ,sentinel (sen)
      ,parentPtr(0)
 {
     start.tv_sec  = 0;
@@ -100,10 +152,10 @@ ProbeData::ProbeData(const std::string& n,
     end.tv_nsec   = 0;
 }
 
+
 ProbeData::ProbeData()
-    : name()
-     ,error(false)
-     ,sentinel(false)
+    : name     ()
+     ,sentinel (false)
      ,parentPtr(0)
 {
     start.tv_sec  = 0;
@@ -120,7 +172,6 @@ void ProbeData::reset()
     start.tv_nsec = 0;
     end.tv_sec    = 0;
     end.tv_nsec   = 0;
-    error         = false;
     sentinel      = false;
     parentPtr     = 0;
     children.clear();
@@ -132,7 +183,6 @@ void ProbeData::toStream(
     unsigned int         depth,
     unsigned int&        probeNum,
     const unsigned int&  probeCount,
-    const Resolution&    res,
     std::ostringstream&  outStr) const
 {
     // first output itself
@@ -162,7 +212,7 @@ void ProbeData::toStream(
         {
             unsigned long elapsed = elapsedTime(start, end);
 
-            outStr << " took " << elapsed << " " << resStrings[res]
+            outStr << " took " << elapsed << " " << resStrings[m_traceData.res]
                    << " - " << std::setprecision(2) << (elapsed/static_cast<double>(traceElapsedTime))*100.0
                    << "% of total time"
                    << std::endl;
@@ -176,32 +226,34 @@ void ProbeData::toStream(
 
         for(std::list<ProbeData>::const_iterator it = children.begin(); it != children.end(); it++)
         {
-            it->toStream(traceElapsedTime, depth, ++probeNum, probeCount, res, outStr);
+            it->toStream(traceElapsedTime, depth, ++probeNum, probeCount, outStr);
         }
     }
 }
 
 
 TraceData::TraceData()
-    : res(MILLI_SECONDS)
-     ,active(false)
+    : res       (MILLI_SECONDS)
+     ,active    (false)
      ,probeCount(0)
 {}
 
 
 void TraceData::reset()
 {
-    active        = false;
-    probeCount    = 0;
+    active     = false;
+    probeCount = 0;
     head.reset();
 }
 
 
 void Tracer::startTrace(const std::string& name)
 {
+    if(!enabled) return;
+
     reset();
 
-    // create sentinel node
+    // create sentinel node as head of probe tree
     ProbeData sentinel(name, true);
     getCurrentTime(&sentinel.start);
 
@@ -211,26 +263,27 @@ void Tracer::startTrace(const std::string& name)
 }
 
 
-void Tracer::finishTrace(bool error)
+void Tracer::finishTrace()
 {
+    if(!enabled) return;
+
     if(!m_traceData.active)
     {
-        std::cout << "finishTrace() called for inactive trace" << std::endl;
-        // todo: log to error stream that finishTrace() was called for inactive trace
+        std::cerr << "finishTrace() called for inactive trace" << std::endl;
         return;
     }
 
     getCurrentTime(&m_traceData.head.end);
-    m_traceData.head.error = error;
 }
 
 
 void Tracer::startProbe(const std::string& name)
 {
+    if(!enabled) return;
+
     if(!m_traceData.active || !m_currProbePtr)
     {
-        std::cout << "startProbe() called for inactive trace" << std::endl;
-        // todo: log to error stream that startProbe() was called for inactive trace
+        std::cerr << "startProbe() called for inactive trace" << std::endl;
         return;
     }
 
@@ -245,26 +298,24 @@ void Tracer::startProbe(const std::string& name)
 }
 
 
-void Tracer::finishProbe(bool error)
+void Tracer::finishProbe()
 {
+    if(!enabled) return;
+
     if(!m_traceData.active)
     {
-        std::cout << "finishProbe() called for inactive trace" << std::endl;
-        // todo: log to error stream that finishProbe() was called for inactive trace
+        std::cerr << "finishProbe() called for inactive trace" << std::endl;
         return;
     }
 
     if(!m_currProbePtr)
     {
-        std::cout << "finishProbe() called for null current probe" << std::endl;
-
-        // todo: log to error stream that finishProbe() was called for null current probe
+        std::cerr << "finishProbe() called for null current probe" << std::endl;
         return;
     }
 
     // probe complete, current probe becomes its parent
     getCurrentTime(&(m_currProbePtr->end));
-    m_currProbePtr->error = error;
     m_currProbePtr = m_currProbePtr->parentPtr;
 }
 
@@ -275,8 +326,16 @@ void Tracer::setResolution(Resolution res)
 }
 
 
+void Tracer::enableTracing(bool enable)
+{
+    enabled = enable;
+}
+
+
 std::string Tracer::toString()
 {
+    if(!enabled) return "";
+
     if(!m_traceData.active)
     {
         // ignore toString() for inactive trace
@@ -304,7 +363,7 @@ std::string Tracer::toString()
     {
         unsigned int probeNum = 0;
 
-        m_traceData.head.toStream(elapsed, 0, probeNum, m_traceData.probeCount, m_traceData.res, outStr);
+        m_traceData.head.toStream(elapsed, 0, probeNum, m_traceData.probeCount, outStr);
     }
 
     return outStr.str();

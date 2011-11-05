@@ -5,3 +5,7 @@ To build it, install CMake (cmake.org) and in the instrum directory execute:
 
 cmake .
 make
+make install (if you want to install it).
+
+To use, include instrum.h and use the macros within. Look at testMacros() from test-instrum.cpp
+for an example.
